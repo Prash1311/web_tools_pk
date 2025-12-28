@@ -2,15 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Certificate Generator (Excel → ZIP)</title>
+<title>Certificate Generator (Bulk ZIP)</title>
 
 <!-- Libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
-<!-- Hindi Font -->
-<script src="devanagari-font.js"></script>
 
 <style>
 body {
@@ -64,7 +61,9 @@ button {
   padding:20px;
   margin-top:20px;
 }
-.preview .row { margin-top:8px; }
+.preview .row {
+  margin-top:8px;
+}
 </style>
 </head>
 
@@ -98,111 +97,115 @@ button {
 const { jsPDF } = window.jspdf;
 let records = [];
 
-/* ======================================================
-   HINDI NORMALIZATION (APPLY EVERYWHERE)
-   ====================================================== */
-function normalizeHindi(text) {
-  if (!text) return "";
-  return text
-    .replace(/प्र/g, "प\u200Dर")
-    .replace(/त्र/g, "त\u200Dर")
-    .replace(/ज्ञ/g, "ज\u200Dञ")
-    .trim();
-}
-
-/* ======================================================
+/* ============================
    LOAD & PREVIEW
-   ====================================================== */
+   ============================ */
 function loadFile(){
-  const f = file.files[0];
-  if(!f) return alert("Upload Excel / CSV");
+  const f = document.getElementById("file").files[0];
+  if(!f) {
+    alert("Please upload Excel or CSV file");
+    return;
+  }
 
-  const r = new FileReader();
-  r.onload = e => {
-    const wb = XLSX.read(new Uint8Array(e.target.result), {type:"array"});
-    records = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-    if(!records.length) return alert("Empty file");
+  const reader = new FileReader();
+  reader.onload = e => {
+    const data = new Uint8Array(e.target.result);
+    const wb = XLSX.read(data, { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    records = XLSX.utils.sheet_to_json(sheet);
+
+    if(records.length === 0){
+      alert("File is empty");
+      return;
+    }
+
     previewRecord(records[0]);
   };
-  r.readAsArrayBuffer(f);
+  reader.readAsArrayBuffer(f);
 }
 
 function previewRecord(r){
-  const hi = normalizeHindi(
-    r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en
-  );
-
-  p_hi.textContent = hi;
-  p_en.textContent = r.name_en;
-  preview.style.display = "block";
+  const hi = r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en;
+  document.getElementById("p_hi").textContent = hi;
+  document.getElementById("p_en").textContent = r.name_en;
+  document.getElementById("preview").style.display = "block";
 }
 
-/* ======================================================
-   TEMPLATE DOWNLOAD (HEADERS ONLY)
-   ====================================================== */
+/* ============================
+   TEMPLATE DOWNLOAD
+   ============================ */
 function downloadTemplate(){
-  const header = [
+  const headers = [
     "name_en","name_hi","training","start_date",
     "end_date","hours","designation","school","region"
   ];
-  const blob = new Blob([header.join(",")], {type:"text/csv"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "certificate_template.csv";
-  a.click();
+
+  const blob = new Blob([headers.join(",")], {
+    type: "text/csv;charset=utf-8;"
+  });
+
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "certificate_template.csv";
+  link.click();
 }
 
-/* ======================================================
-   PDF CREATION (FULL, CORRECT, KVS STYLE)
-   ====================================================== */
+/* ============================
+   PDF CREATION
+   ============================ */
 function createPDF(r){
   const pdf = new jsPDF("landscape");
 
-  // Register Hindi font
-  pdf.addFileToVFS("NotoDeva.ttf", DEVANAGARI_FONT_BASE64);
-  pdf.addFont("NotoDeva.ttf", "NotoDeva", "normal");
-
-  const nameHI = normalizeHindi(
-    r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en
-  );
+  const nameHI = r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en;
   const nameEN = r.name_en;
 
-  /* ---------- Header ---------- */
   pdf.setFont("Times","Bold");
   pdf.setFontSize(22);
-  pdf.text(
-    "KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",
-    148, 25, {align:"center"}
-  );
+  pdf.text("KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",148,25,{align:"center"});
 
-  pdf.setFont("NotoDeva","normal");
   pdf.setFontSize(18);
-  pdf.text(normalizeHindi("प्रमाण-पत्र"),148,40,{align:"center"});
+  pdf.text("प्रमाण-पत्र",148,40,{align:"center"});
 
-  /* ---------- Hindi Body (EXACT FLOW) ---------- */
-  pdf.setFontSize(14);
-  pdf.text(
-    normalizeHindi(
-      `यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI}`
-    ),
-    30, 65
-  );
-
-  pdf.text(
-    normalizeHindi(`${r.start_date} से ${r.end_date} तक`),
-    30, 85
-  );
-
-  pdf.text(
-    normalizeHindi(`${r.hours} घंटे हेतु`),
-    30, 105
-  );
-
-  /* ---------- English Body ---------- */
   pdf.setFont("Times","Normal");
   pdf.setFontSize(14);
 
+  pdf.text(`यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI}`,30,65);
+  pdf.text(`${r.start_date} से ${r.end_date} तक`,30,85);
+  pdf.text(`${r.hours} घंटे हेतु`,30,105);
+
   pdf.text(`This is to certify that ${nameEN}`,30,130);
-  pdf.text(
-    `has attended training from ${r.start_date} to ${r.end_date}`,
-    30,145
+  pdf.text(`has attended training from ${r.start_date} to ${r.end_date}`,30,145);
+  pdf.text(`for ${r.hours} hours.`,30,160);
+
+  pdf.text("Principal",250,190);
+
+  return pdf.output("arraybuffer");
+}
+
+/* ============================
+   BULK ZIP
+   ============================ */
+async function generateZIP(){
+  if(records.length === 0){
+    alert("Please load Excel first");
+    return;
+  }
+
+  const zip = new JSZip();
+
+  records.forEach((r,i)=>{
+    const safeName = (r.name_en || "certificate_"+(i+1))
+      .replace(/[^a-z0-9]/gi,"_");
+    zip.file(`${safeName}.pdf`, createPDF(r));
+  });
+
+  const blob = await zip.generateAsync({ type: "blob" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "certificates.zip";
+  link.click();
+}
+</script>
+
+</body>
+</html>
