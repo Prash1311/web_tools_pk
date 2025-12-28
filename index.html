@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Smart Image Compressor</title>
+<title>Image Compressor</title>
 <style>
- body { font-family: Arial; max-width: 520px; margin: 40px auto; }
+ body { font-family: Arial; max-width:520px; margin:40px auto; }
  label { display:block; margin-top:15px; }
  canvas { border:1px solid #ccc; margin-top:15px; }
 </style>
@@ -30,78 +30,85 @@
 </label>
 
 <p>
- Expected size: <strong><span id="size">--</span></strong>
+ Original size: <strong><span id="origSize">--</span></strong><br>
+ Expected size: <strong><span id="estSize">--</span></strong>
 </p>
 
 <button onclick="processImage()">Process</button>
 
-<br><br>
-<canvas id="canvas"></canvas>
-
-<br><br>
+<canvas id="canvas"></canvas><br><br>
 <a id="download" style="display:none;">Download Image</a>
 
 <script>
-let originalImg, origW, origH;
+let img, origW, origH, originalBytes = 0;
 
 upload.onchange = () => {
-  originalImg = new Image();
-  originalImg.onload = () => {
-    origW = originalImg.width;
-    origH = originalImg.height;
-    processImage();
-  };
-  originalImg.src = URL.createObjectURL(upload.files[0]);
+  const file = upload.files[0];
+  if (!file) return;
+
+  originalBytes = file.size;
+  origSize.textContent = Math.round(originalBytes / 1024) + " KB";
+
+  img = new Image();
+  img.onload = processImage;
+  img.src = URL.createObjectURL(file);
 };
 
 quality.oninput = () => {
   qval.textContent = quality.value;
-  processImage();
+  estimateSize();
 };
 
-width.oninput = processImage;
-crop.onchange = processImage;
+width.oninput = estimateSize;
+crop.onchange = estimateSize;
+
+function estimateSize() {
+  if (!originalBytes) return;
+
+  const q = quality.value / 100;
+  const scale = width.value / (origW || width.value);
+
+  // rough but stable estimation
+  const estimated = originalBytes * q * scale * scale;
+  estSize.textContent = Math.max(1, Math.round(estimated / 1024)) + " KB";
+}
 
 function processImage() {
-  if (!originalImg) return;
+  if (!img) return;
+
+  origW = img.width;
+  origH = img.height;
 
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
 
   const newW = parseInt(width.value);
-  const ratio = origH / origW;
-  const newH = Math.round(newW * ratio);
+  const newH = Math.round(newW * (origH / origW));
 
   canvas.width = newW;
   canvas.height = newH;
 
   let sx=0, sy=0, sw=origW, sh=origH;
-
   if (crop.checked) {
-    const min = Math.min(origW, origH);
-    sx = (origW - min) / 2;
-    sy = (origH - min) / 2;
-    sw = sh = min;
+    const m = Math.min(origW, origH);
+    sx = (origW - m) / 2;
+    sy = (origH - m) / 2;
+    sw = sh = m;
   }
 
-  ctx.drawImage(originalImg, sx, sy, sw, sh, 0, 0, newW, newH);
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, newW, newH);
 
   const q = quality.value / 100;
   const dataURL = canvas.toDataURL("image/jpeg", q);
-
- canvas.toBlob(blob => {
-  const kb = Math.round(blob.size / 1024);
-  size.textContent = kb + " KB";
-}, "image/jpeg", q);
-
 
   download.href = dataURL;
   download.download = "compressed.jpg";
   download.style.display = "inline-block";
   download.textContent = "Download Image";
+
+  estimateSize();
 }
 </script>
 
 </body>
 </html>
-
