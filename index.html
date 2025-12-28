@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Image Resizer & Compressor</title>
+<title>Smart Image Compressor</title>
 <style>
-  body { font-family: Arial, sans-serif; max-width: 500px; margin: 40px auto; }
-  label { display: block; margin-top: 15px; }
+ body { font-family: Arial; max-width: 520px; margin: 40px auto; }
+ label { display:block; margin-top:15px; }
+ canvas { border:1px solid #ccc; margin-top:15px; }
 </style>
 </head>
 <body>
@@ -15,63 +16,86 @@
 <input type="file" id="upload" accept="image/*">
 
 <label>
-  Width (px):
-  <input type="number" id="w" value="800">
+ Width (px):
+ <input type="number" id="width" value="800">
 </label>
 
 <label>
-  Height (px):
-  <input type="number" id="h" value="600">
+ Compression: <span id="qval">80</span>%
+ <input type="range" id="quality" min="10" max="100" value="80">
 </label>
 
 <label>
-  Compression: <span id="qval">80</span>%
-  <input type="range" id="quality" min="10" max="100" value="80">
+ <input type="checkbox" id="crop"> Enable Center Crop
 </label>
 
-<br>
-<button onclick="processImage()">Process Image</button>
+<p>
+ Expected size: <strong><span id="size">--</span></strong>
+</p>
+
+<button onclick="processImage()">Process</button>
 
 <br><br>
-<canvas id="canvas" style="border:1px solid #ccc;"></canvas>
+<canvas id="canvas"></canvas>
 
 <br><br>
 <a id="download" style="display:none;">Download Image</a>
 
 <script>
-const qualitySlider = document.getElementById("quality");
-const qval = document.getElementById("qval");
+let originalImg, origW, origH;
 
-qualitySlider.oninput = () => qval.textContent = qualitySlider.value;
+upload.onchange = () => {
+  originalImg = new Image();
+  originalImg.onload = () => {
+    origW = originalImg.width;
+    origH = originalImg.height;
+    processImage();
+  };
+  originalImg.src = URL.createObjectURL(upload.files[0]);
+};
+
+quality.oninput = () => {
+  qval.textContent = quality.value;
+  processImage();
+};
+
+width.oninput = processImage;
+crop.onchange = processImage;
 
 function processImage() {
-  const fileInput = document.getElementById("upload");
-  if (!fileInput.files.length) {
-    alert("Please select an image");
-    return;
+  if (!originalImg) return;
+
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+
+  const newW = parseInt(width.value);
+  const ratio = origH / origW;
+  const newH = Math.round(newW * ratio);
+
+  canvas.width = newW;
+  canvas.height = newH;
+
+  let sx=0, sy=0, sw=origW, sh=origH;
+
+  if (crop.checked) {
+    const min = Math.min(origW, origH);
+    sx = (origW - min) / 2;
+    sy = (origH - min) / 2;
+    sw = sh = min;
   }
 
-  const img = new Image();
-  img.onload = () => {
-    const canvas = document.getElementById("canvas");
-    const w = parseInt(document.getElementById("w").value);
-    const h = parseInt(document.getElementById("h").value);
-    const quality = parseInt(qualitySlider.value) / 100;
+  ctx.drawImage(originalImg, sx, sy, sw, sh, 0, 0, newW, newH);
 
-    canvas.width = w;
-    canvas.height = h;
-    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+  const q = quality.value / 100;
+  const dataURL = canvas.toDataURL("image/jpeg", q);
 
-    const dataURL = canvas.toDataURL("image/jpeg", quality);
+  const bytes = Math.round((dataURL.length * 3) / 4 / 1024);
+  size.textContent = bytes + " KB";
 
-    const download = document.getElementById("download");
-    download.href = dataURL;
-    download.download = "compressed.jpg";
-    download.style.display = "inline-block";
-    download.textContent = "Download Image";
-  };
-
-  img.src = URL.createObjectURL(fileInput.files[0]);
+  download.href = dataURL;
+  download.download = "compressed.jpg";
+  download.style.display = "inline-block";
+  download.textContent = "Download Image";
 }
 </script>
 
