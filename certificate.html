@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Certificate Generator</title>
+<title>Certificate Generator (Bulk ZIP)</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
 body {
@@ -53,12 +54,13 @@ button {
   margin-top:20px;
 }
 
-.preview h3 {
-  text-align:center;
-}
+.row { margin-top:8px; }
 
-.row {
-  margin-top:10px;
+.actions {
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-top:15px;
 }
 </style>
 </head>
@@ -72,13 +74,17 @@ button {
 </nav>
 
 <div class="container">
-<h2>Certificate Generator (Excel Upload + Preview)</h2>
+<h2>Certificate Generator (Excel Upload → ZIP)</h2>
 
 <input type="file" id="file" accept=".xlsx,.csv"><br>
-<button onclick="loadFile()">Load & Preview</button>
+
+<div class="actions">
+  <button onclick="loadFile()">Load & Preview First</button>
+  <button onclick="generateZIP()">Generate ALL Certificates (ZIP)</button>
+</div>
 
 <div class="preview" id="preview" style="display:none;">
-  <h3>Certificate Preview</h3>
+  <h3>Preview (First Record)</h3>
 
   <div class="row"><b>Hindi Name:</b> <span id="p_name_hi"></span></div>
   <div class="row"><b>English Name:</b> <span id="p_name_en"></span></div>
@@ -90,15 +96,14 @@ button {
     <span id="p_start"></span> to <span id="p_end"></span>
     (<span id="p_hours"></span> hours)
   </div>
-
-  <button onclick="generatePDF()">Generate Certificate PDF</button>
 </div>
 </div>
 
 <script>
 const { jsPDF } = window.jspdf;
-let record = null;
+let records = [];
 
+/* ---------- Load & Preview ---------- */
 function loadFile(){
   const file = document.getElementById("file").files[0];
   if(!file) return alert("Upload Excel / CSV");
@@ -108,12 +113,11 @@ function loadFile(){
     const data = new Uint8Array(e.target.result);
     const wb = XLSX.read(data, {type:"array"});
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet);
+    records = XLSX.utils.sheet_to_json(sheet);
 
-    if(rows.length === 0) return alert("Empty file");
+    if(records.length === 0) return alert("File is empty");
 
-    record = rows[0]; // preview first record
-    showPreview(record);
+    showPreview(records[0]);
   };
   reader.readAsArrayBuffer(file);
 }
@@ -122,25 +126,24 @@ function showPreview(r){
   const nameEN = r.name_en;
   const nameHI = r.name_hi && r.name_hi.trim() !== "" ? r.name_hi : r.name_en;
 
-  document.getElementById("p_name_hi").textContent = nameHI;
-  document.getElementById("p_name_en").textContent = nameEN;
-  document.getElementById("p_desig").textContent = r.designation;
-  document.getElementById("p_school").textContent = r.school;
-  document.getElementById("p_region").textContent = r.region;
-  document.getElementById("p_training").textContent = r.training;
-  document.getElementById("p_start").textContent = r.start_date;
-  document.getElementById("p_end").textContent = r.end_date;
-  document.getElementById("p_hours").textContent = r.hours;
+  p_name_hi.textContent = nameHI;
+  p_name_en.textContent = nameEN;
+  p_desig.textContent = r.designation;
+  p_school.textContent = r.school;
+  p_region.textContent = r.region;
+  p_training.textContent = r.training;
+  p_start.textContent = r.start_date;
+  p_end.textContent = r.end_date;
+  p_hours.textContent = r.hours;
 
-  document.getElementById("preview").style.display = "block";
+  preview.style.display = "block";
 }
 
-function generatePDF(){
-  if(!record) return;
-
-  const nameEN = record.name_en;
-  const nameHI = record.name_hi && record.name_hi.trim() !== ""
-    ? record.name_hi : record.name_en;
+/* ---------- PDF Creation ---------- */
+function createPDF(r){
+  const nameEN = r.name_en;
+  const nameHI = r.name_hi && r.name_hi.trim() !== ""
+    ? r.name_hi : r.name_en;
 
   const pdf = new jsPDF("landscape");
 
@@ -155,29 +158,9 @@ function generatePDF(){
   pdf.setFontSize(14);
 
   pdf.text(`यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI}`,20,65);
-  pdf.text(`पदनाम : ${record.designation}`,20,75);
-  pdf.text(`विद्यालय : ${record.school}`,20,85);
-  pdf.text(`क्षेत्रीय कार्यालय : ${record.region}`,20,95);
+  pdf.text(`पदनाम : ${r.designation}`,20,75);
+  pdf.text(`विद्यालय : ${r.school}`,20,85);
+  pdf.text(`क्षेत्रीय कार्यालय : ${r.region}`,20,95);
 
   pdf.text(
-    `${record.training} (दिनांक ${record.start_date} से ${record.end_date}) में ${record.hours} घंटे हेतु`,
-    20,110
-  );
-
-  pdf.text("प्रतिभागी / संसाधक के रूप में सहभागिता की।",20,120);
-
-  pdf.text(`This is to certify that ${nameEN}`,20,145);
-  pdf.text(`Designation : ${record.designation}`,20,155);
-  pdf.text(
-    `has attended ${record.training} from ${record.start_date} to ${record.end_date} for ${record.hours} hours.`,
-    20,170
-  );
-
-  pdf.text("Principal",250,190);
-
-  pdf.save(`${nameEN}_certificate.pdf`);
-}
-</script>
-
-</body>
-</html>
+    `${r.tra
