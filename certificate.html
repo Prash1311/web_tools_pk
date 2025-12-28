@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Certificate Generator</title>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
@@ -11,109 +12,170 @@ body {
   font-family: Arial, sans-serif;
   background:#f4f6f8;
   margin:0;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
 }
 
-.card {
+.nav {
+  background:#222;
+  padding:12px 0;
+  display:flex;
+  justify-content:center;
+  gap:24px;
+}
+
+.nav a {
+  color:#fff;
+  text-decoration:none;
+  font-weight:bold;
+}
+
+.container {
+  max-width:900px;
+  margin:30px auto;
   background:#fff;
-  padding:30px;
-  width:420px;
+  padding:25px;
   border-radius:10px;
   box-shadow:0 6px 18px rgba(0,0,0,0.15);
 }
 
-h2 {
-  text-align:center;
-  margin-bottom:20px;
-}
-
-label {
-  display:block;
-  margin-top:12px;
-  font-weight:bold;
-}
-
-input {
-  width:100%;
-  padding:8px;
-  margin-top:5px;
-}
-
 button {
-  width:100%;
-  padding:12px;
-  margin-top:20px;
+  padding:10px 14px;
   border:none;
   border-radius:6px;
   background:#6f42c1;
   color:#fff;
-  font-size:16px;
   cursor:pointer;
+  margin-top:10px;
+}
+
+.preview {
+  border:1px solid #ccc;
+  padding:20px;
+  margin-top:20px;
+}
+
+.preview h3 {
+  text-align:center;
+}
+
+.row {
+  margin-top:10px;
 }
 </style>
 </head>
+
 <body>
 
-<div class="card">
-  <h2>Certificate Generator</h2>
+<nav class="nav">
+  <a href="index.html">🏠 Home</a>
+  <a href="image-resizer.html">🖼 Image Resizer</a>
+  <a href="pdf-resizer.html">📄 PDF Resizer</a>
+</nav>
 
-  <label>Student Name</label>
-  <input type="text" id="name" placeholder="Enter name">
+<div class="container">
+<h2>Certificate Generator (Excel Upload + Preview)</h2>
 
-  <label>Course / Event</label>
-  <input type="text" id="course" placeholder="Course or event name">
+<input type="file" id="file" accept=".xlsx,.csv"><br>
+<button onclick="loadFile()">Load & Preview</button>
 
-  <label>Date</label>
-  <input type="date" id="date">
+<div class="preview" id="preview" style="display:none;">
+  <h3>Certificate Preview</h3>
 
-  <label>Issued By</label>
-  <input type="text" id="issuer" placeholder="School / Institution">
+  <div class="row"><b>Hindi Name:</b> <span id="p_name_hi"></span></div>
+  <div class="row"><b>English Name:</b> <span id="p_name_en"></span></div>
+  <div class="row"><b>Designation:</b> <span id="p_desig"></span></div>
+  <div class="row"><b>School:</b> <span id="p_school"></span></div>
+  <div class="row"><b>Region:</b> <span id="p_region"></span></div>
+  <div class="row"><b>Training:</b> <span id="p_training"></span></div>
+  <div class="row"><b>Duration:</b>
+    <span id="p_start"></span> to <span id="p_end"></span>
+    (<span id="p_hours"></span> hours)
+  </div>
 
-  <button onclick="generate()">Generate Certificate</button>
+  <button onclick="generatePDF()">Generate Certificate PDF</button>
+</div>
 </div>
 
 <script>
 const { jsPDF } = window.jspdf;
+let record = null;
 
-function generate() {
-  const name = document.getElementById("name").value;
-  const course = document.getElementById("course").value;
-  const date = document.getElementById("date").value;
-  const issuer = document.getElementById("issuer").value;
+function loadFile(){
+  const file = document.getElementById("file").files[0];
+  if(!file) return alert("Upload Excel / CSV");
 
-  if (!name || !course || !date || !issuer) {
-    alert("Please fill all fields");
-    return;
-  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const data = new Uint8Array(e.target.result);
+    const wb = XLSX.read(data, {type:"array"});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    if(rows.length === 0) return alert("Empty file");
+
+    record = rows[0]; // preview first record
+    showPreview(record);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showPreview(r){
+  const nameEN = r.name_en;
+  const nameHI = r.name_hi && r.name_hi.trim() !== "" ? r.name_hi : r.name_en;
+
+  document.getElementById("p_name_hi").textContent = nameHI;
+  document.getElementById("p_name_en").textContent = nameEN;
+  document.getElementById("p_desig").textContent = r.designation;
+  document.getElementById("p_school").textContent = r.school;
+  document.getElementById("p_region").textContent = r.region;
+  document.getElementById("p_training").textContent = r.training;
+  document.getElementById("p_start").textContent = r.start_date;
+  document.getElementById("p_end").textContent = r.end_date;
+  document.getElementById("p_hours").textContent = r.hours;
+
+  document.getElementById("preview").style.display = "block";
+}
+
+function generatePDF(){
+  if(!record) return;
+
+  const nameEN = record.name_en;
+  const nameHI = record.name_hi && record.name_hi.trim() !== ""
+    ? record.name_hi : record.name_en;
 
   const pdf = new jsPDF("landscape");
 
   pdf.setFont("Times","Bold");
-  pdf.setFontSize(28);
-  pdf.text("CERTIFICATE OF PARTICIPATION", 148, 30, { align:"center" });
-
-  pdf.setFont("Times","Normal");
-  pdf.setFontSize(16);
-  pdf.text("This is to certify that", 148, 55, { align:"center" });
-
-  pdf.setFont("Times","Bold");
   pdf.setFontSize(22);
-  pdf.text(name, 148, 75, { align:"center" });
+  pdf.text("KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",148,25,{align:"center"});
+
+  pdf.setFontSize(18);
+  pdf.text("प्रमाण-पत्र / Certificate",148,40,{align:"center"});
 
   pdf.setFont("Times","Normal");
-  pdf.setFontSize(16);
+  pdf.setFontSize(14);
+
+  pdf.text(`यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI}`,20,65);
+  pdf.text(`पदनाम : ${record.designation}`,20,75);
+  pdf.text(`विद्यालय : ${record.school}`,20,85);
+  pdf.text(`क्षेत्रीय कार्यालय : ${record.region}`,20,95);
+
   pdf.text(
-    `has successfully participated in "${course}"`,
-    148, 95, { align:"center" }
+    `${record.training} (दिनांक ${record.start_date} से ${record.end_date}) में ${record.hours} घंटे हेतु`,
+    20,110
   );
 
-  pdf.text(`Date: ${date}`, 40, 130);
-  pdf.text(`Issued by: ${issuer}`, 220, 130, { align:"right" });
+  pdf.text("प्रतिभागी / संसाधक के रूप में सहभागिता की।",20,120);
 
-  pdf.save(`${name}_certificate.pdf`);
+  pdf.text(`This is to certify that ${nameEN}`,20,145);
+  pdf.text(`Designation : ${record.designation}`,20,155);
+  pdf.text(
+    `has attended ${record.training} from ${record.start_date} to ${record.end_date} for ${record.hours} hours.`,
+    20,170
+  );
+
+  pdf.text("Principal",250,190);
+
+  pdf.save(`${nameEN}_certificate.pdf`);
 }
 </script>
 
