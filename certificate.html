@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Certificate Generator (Bulk ZIP)</title>
+<title>Certificate Generator (Excel → ZIP)</title>
 
 <!-- Libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -13,7 +13,11 @@
 <script src="devanagari-font.js"></script>
 
 <style>
-body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0; }
+body {
+  font-family: Arial, sans-serif;
+  background:#f4f6f8;
+  margin:0;
+}
 
 .nav {
   background:#222;
@@ -23,7 +27,11 @@ body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0; }
   gap:24px;
 }
 
-.nav a { color:#fff; text-decoration:none; font-weight:bold; }
+.nav a {
+  color:#fff;
+  text-decoration:none;
+  font-weight:bold;
+}
 
 .container {
   max-width:900px;
@@ -34,7 +42,12 @@ body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0; }
   box-shadow:0 6px 18px rgba(0,0,0,0.15);
 }
 
-.actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:15px; }
+.actions {
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-top:15px;
+}
 
 button {
   padding:10px 14px;
@@ -45,7 +58,12 @@ button {
   cursor:pointer;
 }
 
-.preview { display:none; border:1px solid #ccc; padding:20px; margin-top:20px; }
+.preview {
+  display:none;
+  border:1px solid #ccc;
+  padding:20px;
+  margin-top:20px;
+}
 .preview .row { margin-top:8px; }
 </style>
 </head>
@@ -59,28 +77,42 @@ button {
 </nav>
 
 <div class="container">
-<h2>Certificate Generator (Excel → ZIP)</h2>
+  <h2>Certificate Generator (Excel → ZIP)</h2>
 
-<input type="file" id="file" accept=".xlsx,.csv">
+  <input type="file" id="file" accept=".xlsx,.csv">
 
-<div class="actions">
-  <button onclick="loadFile()">Load & Preview</button>
-  <button onclick="generateZIP()">Generate ALL (ZIP)</button>
-  <button onclick="downloadTemplate()">⬇ Download Excel Template (.xlsx)</button>
-</div>
+  <div class="actions">
+    <button onclick="loadFile()">Load & Preview</button>
+    <button onclick="generateZIP()">Generate ALL Certificates (ZIP)</button>
+    <button onclick="downloadTemplate()">⬇ Download Template</button>
+  </div>
 
-<div class="preview" id="preview">
-  <h3>Preview (First Record)</h3>
-  <div class="row"><b>Hindi Name:</b> <span id="p_hi"></span></div>
-  <div class="row"><b>English Name:</b> <span id="p_en"></span></div>
-</div>
+  <div class="preview" id="preview">
+    <h3>Preview (First Record)</h3>
+    <div class="row"><b>Hindi Name:</b> <span id="p_hi"></span></div>
+    <div class="row"><b>English Name:</b> <span id="p_en"></span></div>
+  </div>
 </div>
 
 <script>
 const { jsPDF } = window.jspdf;
 let records = [];
 
-/* ---------- Load Excel ---------- */
+/* ======================================================
+   HINDI NORMALIZATION (APPLY EVERYWHERE)
+   ====================================================== */
+function normalizeHindi(text) {
+  if (!text) return "";
+  return text
+    .replace(/प्र/g, "प\u200Dर")
+    .replace(/त्र/g, "त\u200Dर")
+    .replace(/ज्ञ/g, "ज\u200Dञ")
+    .trim();
+}
+
+/* ======================================================
+   LOAD & PREVIEW
+   ====================================================== */
 function loadFile(){
   const f = file.files[0];
   if(!f) return alert("Upload Excel / CSV");
@@ -96,13 +128,18 @@ function loadFile(){
 }
 
 function previewRecord(r){
-  const hi = r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en;
+  const hi = normalizeHindi(
+    r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en
+  );
+
   p_hi.textContent = hi;
   p_en.textContent = r.name_en;
   preview.style.display = "block";
 }
 
-/* ---------- Template ---------- */
+/* ======================================================
+   TEMPLATE DOWNLOAD (HEADERS ONLY)
+   ====================================================== */
 function downloadTemplate(){
   const header = [
     "name_en","name_hi","training","start_date",
@@ -115,7 +152,9 @@ function downloadTemplate(){
   a.click();
 }
 
-/* ---------- PDF + Hindi Font ---------- */
+/* ======================================================
+   PDF CREATION (FULL, CORRECT, KVS STYLE)
+   ====================================================== */
 function createPDF(r){
   const pdf = new jsPDF("landscape");
 
@@ -123,73 +162,47 @@ function createPDF(r){
   pdf.addFileToVFS("NotoDeva.ttf", DEVANAGARI_FONT_BASE64);
   pdf.addFont("NotoDeva.ttf", "NotoDeva", "normal");
 
-  const nameHI = r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en;
+  const nameHI = normalizeHindi(
+    r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en
+  );
   const nameEN = r.name_en;
 
-  // ---------- Header ----------
+  /* ---------- Header ---------- */
   pdf.setFont("Times","Bold");
   pdf.setFontSize(22);
-  pdf.text("KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",148,25,{align:"center"});
+  pdf.text(
+    "KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",
+    148, 25, {align:"center"}
+  );
 
   pdf.setFont("NotoDeva","normal");
   pdf.setFontSize(18);
-  pdf.text("प्रमाण-पत्र",148,40,{align:"center"});
+  pdf.text(normalizeHindi("प्रमाण-पत्र"),148,40,{align:"center"});
 
-  // ---------- Hindi Body ----------
+  /* ---------- Hindi Body (EXACT FLOW) ---------- */
   pdf.setFontSize(14);
   pdf.text(
-    `यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI}`,
+    normalizeHindi(
+      `यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI}`
+    ),
     30, 65
   );
 
   pdf.text(
-    `${r.training} प्रशिक्षण कार्यक्रम में दिनांक ${r.start_date} से ${r.end_date} तक`,
-    30, 80
+    normalizeHindi(`${r.start_date} से ${r.end_date} तक`),
+    30, 85
   );
 
   pdf.text(
-    `${r.hours} घंटे हेतु प्रतिभागी / संसाधक के रूप में सहभागिता की।`,
-    30, 95
+    normalizeHindi(`${r.hours} घंटे हेतु`),
+    30, 105
   );
 
-  // ---------- English Body ----------
+  /* ---------- English Body ---------- */
   pdf.setFont("Times","Normal");
   pdf.setFontSize(14);
 
+  pdf.text(`This is to certify that ${nameEN}`,30,130);
   pdf.text(
-    `This is to certify that ${nameEN}`,
-    30, 120
-  );
-
-  pdf.text(
-    `has attended the training programme "${r.training}"`,
-    30, 135
-  );
-
-  pdf.text(
-    `from ${r.start_date} to ${r.end_date} for ${r.hours} hours.`,
-    30, 150
-  );
-
-  // ---------- Footer ----------
-  pdf.text("Principal", 250, 190);
-
-  return pdf.output("arraybuffer");
-}
-/* ---------- ZIP ---------- */
-async function generateZIP(){
-  if(!records.length) return alert("Load file first");
-  const zip = new JSZip();
-  records.forEach((r,i)=>{
-    zip.file(`${r.name_en.replace(/\\W/g,"_")}.pdf`, createPDF(r));
-  });
-  const blob = await zip.generateAsync({type:"blob"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "certificates.zip";
-  a.click();
-}
-</script>
-
-</body>
-</html>
+    `has attended training from ${r.start_date} to ${r.end_date}`,
+    30,145
