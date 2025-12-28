@@ -96,12 +96,6 @@ function val(v, fallback="________________________") {
 }
 
 function generateWord() {
-  const orgName = document.getElementById("orgName").value.trim();
-  if (!orgName) {
-    alert("Please enter Certifying Body / School Name");
-    return;
-  }
-
   const file = document.getElementById("file").files[0];
   if (!file) {
     alert("Please upload Excel (.xlsx)");
@@ -114,9 +108,19 @@ function generateWord() {
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet);
 
+    if (!rows.length) {
+      alert("Excel file is empty");
+      return;
+    }
+
     const {
-      Document, Packer, Paragraph, TextRun,
-      PageBreak, AlignmentType, PageOrientation
+      Document,
+      Packer,
+      Paragraph,
+      TextRun,
+      PageBreak,
+      AlignmentType,
+      PageOrientation
     } = window.docx;
 
     const children = [];
@@ -133,18 +137,16 @@ function generateWord() {
       const startDate = excelDateToString(r.start_date);
       const endDate = excelDateToString(r.end_date);
 
-      /* ================= HEADER ================= */
+      // ================= HEADER =================
       children.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { before: 500, after: 500 },
-          children: [
-            new TextRun({
-              text: orgName.toUpperCase(),
-              bold: true,
-              size: 56   // 28 pt
-            })
-          ]
+          spacing: { before: 500 },
+          children: [new TextRun({
+            text: "KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",
+            bold: true,
+            size: 56   // 28 pt
+          })]
         })
       );
 
@@ -152,67 +154,64 @@ function generateWord() {
         new Paragraph({
           alignment: AlignmentType.CENTER,
           spacing: { after: 600 },
-          children: [
-            new TextRun({
-              text: "प्रमाण-पत्र / Certificate",
-              bold: true,
-              size: 50   // 25 pt
-            })
-          ]
+          children: [new TextRun({
+            text: "प्रमाण-पत्र / Certificate",
+            bold: true,
+            size: 50   // 25 pt
+          })]
         })
       );
 
-      /* ================= HINDI BODY ================= */
+      // ================= HINDI BODY =================
       children.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
           spacing: { after: 300 },
-          children: [
-            new TextRun({
-              text:
-                `प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI} `
-                + `पदनाम ${designation} पीएम श्री / केन्द्रीय विद्यालय ${school} `
-                + `क्षेत्रीय कार्यालय ${region} `
-                + `मुख्य रूप से आयोजित ${training} `
-                + `(${startDate} से ${endDate} तक) `
-                + `प्रशिक्षण कार्यक्रम / कार्यशाला / गतिविधि में `
-                + `${hours} घंटे हेतु प्रतिभागी / संसाधक के रूप में सहभागिता की।`,
-              size: 50
-            })
-          ]
+          children: [new TextRun({
+            text:
+              `प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI} `
+              + `पदनाम ${designation} पीएम श्री / केन्द्रीय विद्यालय ${school} `
+              + `क्षेत्रीय कार्यालय ${region} `
+              + `मुख्य रूप से आयोजित ${training} `
+              + `(${startDate} से ${endDate} तक) `
+              + `प्रशिक्षण कार्यक्रम / कार्यशाला / गतिविधि में `
+              + `${hours} घंटे हेतु प्रतिभागी / संसाधक के रूप में सहभागिता की।`,
+            size: 50
+          })]
         })
       );
 
-      /* ================= ENGLISH BODY ================= */
+      // ================= ENGLISH BODY =================
       children.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { after: 1200 },
-          children: [
-            new TextRun({
-              text:
-                `This is to certify that Mr./Mrs./Ms./Dr. ${nameEN}, `
-                + `Designation ${designation} of ${school}, `
-                + `Regional Office ${region} `
-                + `has attended ${training} `
-                + `(From ${startDate} to ${endDate}) `
-                + `for ${hours} hours as a Participant / Resource Person.`,
-              size: 50
-            })
-          ]
+          spacing: { after: 800 },
+          children: [new TextRun({
+            text:
+              `This is to certify that Mr./Mrs./Ms./Dr. ${nameEN}, `
+              + `Designation ${designation} of PM Shri / Kendriya Vidyalaya ${school}, `
+              + `Regional Office ${region} `
+              + `has attended ${training} `
+              + `(From ${startDate} to ${endDate}) `
+              + `for ${hours} hours as a Participant / Resource Person.`,
+            size: 50
+          })]
         })
       );
 
-      /* ================= FOOTER (LEFT + RIGHT) ================= */
+      // ================= FOOTER =================
       children.push(
         new Paragraph({
-          children: [
-            new TextRun({ text: "Co-ordinator", size: 50 }),
-            new TextRun({ text: "\t\t\t\t\t\t\t\t\tPrincipal", size: 50 })
-          ]
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 400 },
+          children: [new TextRun({
+            text: "Principal",
+            size: 40   // 20 pt
+          })]
         })
       );
 
+      // ================= PAGE BREAK =================
       if (index < rows.length - 1) {
         children.push(new Paragraph({ children: [new PageBreak()] }));
       }
@@ -226,7 +225,7 @@ function generateWord() {
             margin: { top: 720, bottom: 720, left: 720, right: 720 }
           }
         },
-        children
+        children: children
       }]
     });
 
@@ -239,7 +238,6 @@ function generateWord() {
 }
 </script>
 
-</script>
 
 </body>
 </html>
