@@ -66,7 +66,7 @@ button {
 <div class="actions">
   <button onclick="loadFile()">Load & Preview</button>
   <button onclick="generateZIP()">Generate ALL (ZIP)</button>
-  <button onclick="downloadTemplate()">⬇ Download Template</button>
+  <button onclick="downloadTemplate()">⬇ Download Excel Template (.xlsx)</button>
 </div>
 
 <div class="preview" id="preview">
@@ -123,8 +123,10 @@ function createPDF(r){
   pdf.addFileToVFS("NotoDeva.ttf", DEVANAGARI_FONT_BASE64);
   pdf.addFont("NotoDeva.ttf", "NotoDeva", "normal");
 
-  const hi = r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en;
+  const nameHI = r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en;
+  const nameEN = r.name_en;
 
+  // ---------- Header ----------
   pdf.setFont("Times","Bold");
   pdf.setFontSize(22);
   pdf.text("KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",148,25,{align:"center"});
@@ -133,17 +135,47 @@ function createPDF(r){
   pdf.setFontSize(18);
   pdf.text("प्रमाण-पत्र",148,40,{align:"center"});
 
+  // ---------- Hindi Body ----------
   pdf.setFontSize(14);
-  pdf.text(`यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${hi}`,20,70);
+  pdf.text(
+    `यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI}`,
+    30, 65
+  );
 
+  pdf.text(
+    `${r.training} प्रशिक्षण कार्यक्रम में दिनांक ${r.start_date} से ${r.end_date} तक`,
+    30, 80
+  );
+
+  pdf.text(
+    `${r.hours} घंटे हेतु प्रतिभागी / संसाधक के रूप में सहभागिता की।`,
+    30, 95
+  );
+
+  // ---------- English Body ----------
   pdf.setFont("Times","Normal");
-  pdf.text(`This is to certify that ${r.name_en}`,20,110);
+  pdf.setFontSize(14);
 
-  pdf.text("Principal",250,190);
+  pdf.text(
+    `This is to certify that ${nameEN}`,
+    30, 120
+  );
+
+  pdf.text(
+    `has attended the training programme "${r.training}"`,
+    30, 135
+  );
+
+  pdf.text(
+    `from ${r.start_date} to ${r.end_date} for ${r.hours} hours.`,
+    30, 150
+  );
+
+  // ---------- Footer ----------
+  pdf.text("Principal", 250, 190);
 
   return pdf.output("arraybuffer");
 }
-
 /* ---------- ZIP ---------- */
 async function generateZIP(){
   if(!records.length) return alert("Load file first");
