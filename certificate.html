@@ -81,7 +81,9 @@ button {
 <div class="actions">
   <button onclick="loadFile()">Load & Preview First</button>
   <button onclick="generateZIP()">Generate ALL Certificates (ZIP)</button>
+  <button onclick="downloadTemplate()">⬇ Download Excel Template</button>
 </div>
+
 
 <div class="preview" id="preview" style="display:none;">
   <h3>Preview (First Record)</h3>
@@ -102,6 +104,43 @@ button {
 <script>
 const { jsPDF } = window.jspdf;
 let records = [];
+<script>
+function downloadTemplate() {
+  const header = [
+    "name_en",
+    "name_hi",
+    "training",
+    "start_date",
+    "end_date",
+    "hours",
+    "designation",
+    "school",
+    "region"
+  ];
+
+  const sampleRow = [
+    "MAHESHWAR PRASAD NARAYAN SINGH",
+    "महेश्वर प्रसाद नारायण सिंह",
+    "IN-HOUSE TRAINING",
+    "15-01-2025",
+    "15-12-2025",
+    "30",
+    "VICE-PRINCIPAL",
+    "DANAPUR CANTT. (FIRST SHIFT)",
+    "PATNA"
+  ];
+
+  const csv =
+    header.join(",") + "\n" +
+    sampleRow.join(",");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "certificate_template.csv";
+  link.click();
+}
+</script>
 
 /* ---------- Load & Preview ---------- */
 function loadFile(){
