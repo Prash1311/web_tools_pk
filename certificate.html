@@ -78,12 +78,16 @@ button {
 
 document.getElementById("btnGenerate").addEventListener("click", generateWord);
 
-function excelDateToString(excelDate) {
-  if (typeof excelDate === "number") {
-    const date = new Date((excelDate - 25569) * 86400 * 1000);
-    return date.toLocaleDateString("en-GB"); // dd/mm/yyyy
+function excelDateToString(v) {
+  if (typeof v === "number") {
+    const d = new Date((v - 25569) * 86400 * 1000);
+    return d.toLocaleDateString("en-GB");
   }
-  return excelDate; // already text
+  return v || "__________";
+}
+
+function val(v, fallback="________________________") {
+  return v && String(v).trim() ? v : fallback;
 }
 
 function generateWord() {
@@ -117,25 +121,27 @@ function generateWord() {
     const children = [];
 
     rows.forEach((r, index) => {
-      const nameHI = r.name_hi && r.name_hi.trim()
-        ? r.name_hi
-        : r.name_en;
 
+      const nameEN = val(r.name_en);
+      const nameHI = val(r.name_hi, nameEN);
+      const designation = val(r.designation);
+      const school = val(r.school);
+      const region = val(r.region);
+      const training = val(r.training);
+      const hours = val(r.hours, "_____");
       const startDate = excelDateToString(r.start_date);
       const endDate = excelDateToString(r.end_date);
 
-      // ---------- HEADER ----------
+      // ================= HEADER =================
       children.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
           spacing: { before: 500 },
-          children: [
-            new TextRun({
-              text: "KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",
-              bold: true,
-              size: 32 // 16pt
-            })
-          ]
+          children: [new TextRun({
+            text: "KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",
+            bold: true,
+            size: 56   // 28 pt
+          })]
         })
       );
 
@@ -143,117 +149,79 @@ function generateWord() {
         new Paragraph({
           alignment: AlignmentType.CENTER,
           spacing: { after: 600 },
-          children: [
-            new TextRun({
-              text: "प्रमाण-पत्र",
-              bold: true,
-              size: 28 // 14pt
-            })
-          ]
+          children: [new TextRun({
+            text: "प्रमाण-पत्र / Certificate",
+            bold: true,
+            size: 50   // 25 pt
+          })]
         })
       );
 
-      // ---------- HINDI BODY ----------
+      // ================= HINDI BODY =================
       children.push(
         new Paragraph({
+          alignment: AlignmentType.CENTER,
           spacing: { after: 300 },
-          children: [
-            new TextRun({
-              text: `यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI}`,
-              size: 24
-            })
-          ]
+          children: [new TextRun({
+            text:
+              `प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI} `
+              + `पदनाम ${designation} पीएम श्री / केन्द्रीय विद्यालय ${school} `
+              + `क्षेत्रीय कार्यालय ${region} `
+              + `मुख्य रूप से आयोजित ${training} `
+              + `(${startDate} से ${endDate} तक) `
+              + `प्रशिक्षण कार्यक्रम / कार्यशाला / गतिविधि में `
+              + `${hours} घंटे हेतु प्रतिभागी / संसाधक के रूप में सहभागिता की।`,
+            size: 50
+          })]
         })
       );
 
+      // ================= ENGLISH BODY =================
       children.push(
         new Paragraph({
-          spacing: { after: 300 },
-          children: [
-            new TextRun({
-              text: `${startDate} से ${endDate} तक`,
-              size: 24
-            })
-          ]
-        })
-      );
-
-      children.push(
-        new Paragraph({
-          spacing: { after: 600 },
-          children: [
-            new TextRun({
-              text: `${r.hours} घंटे हेतु`,
-              size: 24
-            })
-          ]
-        })
-      );
-
-      // ---------- ENGLISH BODY ----------
-      children.push(
-        new Paragraph({
-          spacing: { after: 200 },
-          children: [
-            new TextRun({
-              text: `This is to certify that ${r.name_en}`,
-              size: 24
-            })
-          ]
-        })
-      );
-
-      children.push(
-        new Paragraph({
+          alignment: AlignmentType.CENTER,
           spacing: { after: 800 },
-          children: [
-            new TextRun({
-              text: `has attended training from ${startDate} to ${endDate} for ${r.hours} hours.`,
-              size: 24
-            })
-          ]
+          children: [new TextRun({
+            text:
+              `This is to certify that Mr./Mrs./Ms./Dr. ${nameEN}, `
+              + `Designation ${designation} of PM Shri / Kendriya Vidyalaya ${school}, `
+              + `Regional Office ${region} `
+              + `has attended ${training} `
+              + `(From ${startDate} to ${endDate}) `
+              + `for ${hours} hours as a Participant / Resource Person.`,
+            size: 50
+          })]
         })
       );
 
-      // ---------- FOOTER ----------
+      // ================= FOOTER =================
       children.push(
         new Paragraph({
-          alignment: AlignmentType.RIGHT,
+          alignment: AlignmentType.CENTER,
           spacing: { before: 400 },
-          children: [
-            new TextRun({
-              text: "Principal",
-              size: 24
-            })
-          ]
+          children: [new TextRun({
+            text: "Principal",
+            size: 40   // 20 pt
+          })]
         })
       );
 
-      // ---------- PAGE BREAK ----------
+      // ================= PAGE BREAK =================
       if (index < rows.length - 1) {
         children.push(new Paragraph({ children: [new PageBreak()] }));
       }
     });
 
     const doc = new Document({
-      sections: [
-        {
-          properties: {
-            page: {
-              size: {
-                orientation: PageOrientation.LANDSCAPE
-              },
-              margin: {
-                top: 720,
-                bottom: 720,
-                left: 720,
-                right: 720
-              }
-            }
-          },
-          children: children
-        }
-      ]
+      sections: [{
+        properties: {
+          page: {
+            size: { orientation: PageOrientation.LANDSCAPE },
+            margin: { top: 720, bottom: 720, left: 720, right: 720 }
+          }
+        },
+        children: children
+      }]
     });
 
     Packer.toBlob(doc).then(blob => {
@@ -263,8 +231,6 @@ function generateWord() {
 
   reader.readAsArrayBuffer(file);
 }
-
-
 </script>
 
 </body>
