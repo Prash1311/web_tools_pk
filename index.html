@@ -89,8 +89,11 @@ function processImage() {
   const q = quality.value / 100;
   const dataURL = canvas.toDataURL("image/jpeg", q);
 
-  const bytes = Math.round((dataURL.length * 3) / 4 / 1024);
-  size.textContent = bytes + " KB";
+ canvas.toBlob(blob => {
+  const kb = Math.round(blob.size / 1024);
+  size.textContent = kb + " KB";
+}, "image/jpeg", q);
+
 
   download.href = dataURL;
   download.download = "compressed.jpg";
@@ -101,3 +104,4 @@ function processImage() {
 
 </body>
 </html>
+
