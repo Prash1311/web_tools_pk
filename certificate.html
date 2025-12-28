@@ -6,7 +6,7 @@
 
 <!-- Libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
 <style>
@@ -45,7 +45,6 @@ button {
   background:#2d7ff9;
   color:#fff;
   cursor:pointer;
-  margin-top:10px;
 }
 </style>
 </head>
@@ -66,8 +65,6 @@ button {
 </div>
 
 <script>
-const { Document, Packer, Paragraph, TextRun, PageBreak, AlignmentType } = window.docx;
-
 document.getElementById("btnGenerate").addEventListener("click", generateWord);
 
 function generateWord() {
@@ -88,71 +85,106 @@ function generateWord() {
       return;
     }
 
+    const {
+      Document,
+      Packer,
+      Paragraph,
+      TextRun,
+      PageBreak,
+      AlignmentType
+    } = docx;
+
     const children = [];
 
     rows.forEach((r, index) => {
-      const nameHI = r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en;
+      const nameHI = r.name_hi && r.name_hi.trim()
+        ? r.name_hi
+        : r.name_en;
 
+      // HEADER
       children.push(
         new Paragraph({
           text: "KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",
           alignment: AlignmentType.CENTER,
           spacing: { after: 300 },
-          bold: true,
-        }),
+          bold: true
+        })
+      );
 
+      children.push(
         new Paragraph({
           text: "प्रमाण-पत्र",
           alignment: AlignmentType.CENTER,
-          spacing: { after: 500 },
-        }),
+          spacing: { after: 500 }
+        })
+      );
 
+      // HINDI BODY
+      children.push(
         new Paragraph({
           children: [
-            new TextRun(`यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI}`)
+            new TextRun(
+              `यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI}`
+            )
           ],
-          spacing: { after: 300 },
-        }),
+          spacing: { after: 300 }
+        })
+      );
 
+      children.push(
         new Paragraph({
           children: [
             new TextRun(`${r.start_date} से ${r.end_date} तक`)
           ],
-          spacing: { after: 300 },
-        }),
+          spacing: { after: 300 }
+        })
+      );
 
+      children.push(
         new Paragraph({
           children: [
             new TextRun(`${r.hours} घंटे हेतु`)
           ],
-          spacing: { after: 500 },
-        }),
+          spacing: { after: 500 }
+        })
+      );
 
+      // ENGLISH BODY
+      children.push(
         new Paragraph({
           children: [
             new TextRun(`This is to certify that ${r.name_en}`)
           ],
-          spacing: { after: 200 },
-        }),
+          spacing: { after: 200 }
+        })
+      );
 
+      children.push(
         new Paragraph({
           children: [
             new TextRun(
               `has attended training from ${r.start_date} to ${r.end_date} for ${r.hours} hours.`
             )
           ],
-          spacing: { after: 800 },
-        }),
-
-        new Paragraph({
-          text: "Principal",
-          alignment: AlignmentType.RIGHT,
+          spacing: { after: 800 }
         })
       );
 
-      // Page break between certificates
+      // FOOTER
+      children.push(
+        new Paragraph({
+          text: "Principal",
+          alignment: AlignmentType.RIGHT
+        })
+      );
+
+      // PAGE BREAK (VERY IMPORTANT)
       if (index < rows.length - 1) {
-        children.push(new Paragraph({ children: [new PageBreak()] }));
+        children.push(
+          new Paragraph({
+            children: [new PageBreak()]
+          })
+        );
       }
     });
 
@@ -160,9 +192,9 @@ function generateWord() {
       sections: [
         {
           properties: {},
-          children: children,
-        },
-      ],
+          children: children
+        }
+      ]
     });
 
     Packer.toBlob(doc).then(blob => {
