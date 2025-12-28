@@ -3,61 +3,151 @@
 <head>
 <meta charset="UTF-8">
 <title>PDF Resizer</title>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+
 <style>
- body {
-   font-family: Arial, sans-serif;
-   background:#f4f6f8;
-   display:flex;
-   justify-content:center;
-   align-items:center;
-   height:100vh;
-   margin:0;
- }
- .card {
-   background:#fff;
-   padding:30px;
-   border-radius:10px;
-   width:360px;
-   text-align:center;
-   box-shadow:0 6px 18px rgba(0,0,0,0.15);
- }
- label { display:block; margin-top:15px; }
- button {
-   margin-top:20px;
-   padding:10px;
-   width:100%;
-   border:none;
-   border-radius:6px;
-   background:#198754;
-   color:#fff;
-   font-size:16px;
-   cursor:pointer;
- }
+/* ---------- Navigation ---------- */
+.nav {
+  background:#222;
+  padding:12px 0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:24px;
+}
+
+.nav a {
+  color:#fff;
+  text-decoration:none;
+  font-weight:bold;
+}
+
+.nav a:hover {
+  text-decoration:underline;
+}
+
+/* ---------- Donate Floating ---------- */
+.donate-float {
+  position:fixed;
+  top:10px;
+  right:10px;
+  z-index:2000;
+}
+
+.donate-float button {
+  background:#ff813f;
+  color:#fff;
+  border:none;
+  border-radius:50%;
+  width:44px;
+  height:44px;
+  font-size:20px;
+  cursor:pointer;
+}
+
+.qr-box {
+  position:absolute;
+  top:50px;
+  right:0;
+  background:#fff;
+  padding:10px;
+  border-radius:8px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.2);
+  display:none;
+}
+
+.qr-box img {
+  width:160px;
+}
+
+.note {
+  font-size:11px;
+  text-align:center;
+  margin-top:5px;
+  color:#555;
+}
+
+/* ---------- Page ---------- */
+body {
+  font-family: Arial, sans-serif;
+  background:#f4f6f8;
+  margin:0;
+}
+
+.container {
+  max-width:600px;
+  margin:30px auto;
+  background:#fff;
+  padding:25px;
+  border-radius:10px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.15);
+}
+
+label {
+  display:block;
+  margin-top:15px;
+}
+
+button.main {
+  margin-top:20px;
+  padding:12px;
+  width:100%;
+  border:none;
+  border-radius:6px;
+  background:#198754;
+  color:#fff;
+  font-size:16px;
+  cursor:pointer;
+}
 </style>
 </head>
+
 <body>
 
-<div class="card">
-  <h2>PDF Resizer</h2>
+<!-- Buy Me a Coffee (Top Right) -->
+<div class="donate-float">
+  <button onclick="toggleQR()">☕</button>
+  <div class="qr-box" id="qr">
+    <img src="qr.jpg" alt="Donate QR">
+    <div class="note">Voluntary support ❤️</div>
+  </div>
+</div>
 
-  <input type="file" id="pdfFile" accept="application/pdf">
+<!-- Navigation (NO self link) -->
+<nav class="nav">
+  <a href="index.html">🏠 Home</a>
+  <a href="image-resizer.html">🖼 Image Resizer</a>
+  <a href="certificate.html">🎓 Certificate</a>
+</nav>
 
-  <label>
-    Scale pages (%):
-    <input type="range" id="scale" min="50" max="100" value="80">
-    <span id="sval">80</span>%
-  </label>
+<div class="container">
+<h2>PDF Resizer</h2>
 
-  <p>
-    Original size: <b><span id="orig">--</span></b><br>
-    Estimated size: <b><span id="est">--</span></b>
-  </p>
+<input type="file" id="pdfFile" accept="application/pdf">
 
-  <button onclick="resizePDF()">Resize & Download</button>
+<label>
+ Scale pages (%):
+ <input type="range" id="scale" min="50" max="100" value="80">
+ <span id="sval">80</span>%
+</label>
+
+<p>
+ Original size: <b><span id="orig">--</span></b><br>
+ Estimated size: <b><span id="est">--</span></b>
+</p>
+
+<button class="main" onclick="resizePDF()">Resize & Download</button>
 </div>
 
 <script>
+/* ---------- Donate ---------- */
+function toggleQR(){
+  const q = document.getElementById("qr");
+  q.style.display = q.style.display === "block" ? "none" : "block";
+}
+
+/* ---------- PDF Logic ---------- */
 const scaleSlider = document.getElementById("scale");
 const sval = document.getElementById("sval");
 const orig = document.getElementById("orig");
@@ -90,19 +180,29 @@ async function resizePDF(){
   if (!file) return alert("Select a PDF");
 
   const bytes = await file.arrayBuffer();
-  const pdfDoc = await PDFLib.PDFDocument.load(bytes);
-  const newPdf = await PDFLib.PDFDocument.create();
+  const srcPdf = await PDFLib.PDFDocument.load(bytes);
+  const outPdf = await PDFLib.PDFDocument.create();
 
   const scale = scaleSlider.value / 100;
-  const pages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+  const pages = srcPdf.getPages();
 
-  pages.forEach(p => {
-    const { width, height } = p.getSize();
-    p.setSize(width*scale, height*scale);
-    newPdf.addPage(p);
-  });
+  for (const page of pages) {
+    const { width, height } = page.getSize();
+    const newPage = outPdf.addPage([width, height]);
 
-  const outBytes = await newPdf.save();
+    const [embedded] = await outPdf.embedPages([page]);
+
+    const newW = width * scale;
+    const newH = height * scale;
+    const x = (width - newW) / 2;
+    const y = (height - newH) / 2;
+
+    newPage.drawPage(embedded, {
+      x, y, width:newW, height:newH
+    });
+  }
+
+  const outBytes = await outPdf.save();
   const blob = new Blob([outBytes], { type:"application/pdf" });
 
   const link = document.createElement("a");
