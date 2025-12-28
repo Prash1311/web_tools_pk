@@ -2,18 +2,23 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Image Compressor with Crop</title>
+<title>Image Resizer & Compressor</title>
 <style>
- body { font-family: Arial; max-width:640px; margin:30px auto; }
- .box { position:relative; width:500px; height:350px; border:1px solid #444; }
+ body { font-family: Arial; max-width:700px; margin:20px auto; }
+ .frame {
+   width:600px; height:400px;
+   border:1px solid #333;
+   position:relative;
+   margin-top:10px;
+ }
  canvas { width:100%; height:100%; cursor:crosshair; }
  #download {
    position:absolute; top:8px; right:8px;
-   background:#007bff; color:#fff;
+   background:#0a58ca; color:#fff;
    padding:6px 10px; text-decoration:none;
    display:none; font-size:14px;
  }
- label { display:block; margin-top:12px; }
+ label { display:block; margin-top:10px; }
 </style>
 </head>
 <body>
@@ -23,100 +28,127 @@
 <input type="file" id="upload" accept="image/*">
 
 <label>
- Width (px):
- <input type="number" id="width" value="800">
+ Output width (px):
+ <input type="number" id="outWidth" value="800">
 </label>
 
 <label>
- Compression: <span id="qval">80</span>%
+ Compression: <span id="qv">80</span>%
  <input type="range" id="quality" min="10" max="100" value="80">
 </label>
 
 <p>
  Original: <b><span id="origSize">--</span></b> |
- Expected: <b><span id="estSize">--</span></b>
+ Estimated: <b><span id="estSize">--</span></b>
 </p>
 
-<div class="box">
+<div class="frame">
   <a id="download">Download</a>
-  <canvas id="canvas" width="500" height="350"></canvas>
+  <canvas id="canvas" width="600" height="400"></canvas>
 </div>
 
-<p><small>Drag to select crop area</small></p>
+<p><small>Drag inside image to crop</small></p>
 
 <button onclick="process()">Process</button>
 
 <script>
-let img, fileSize;
-let sx=0, sy=0, sw=0, sh=0;
-let startX, startY, dragging=false;
-
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
+let img, fileBytes;
+let fit = {}; // fitted image box
+let drag=false, sx, sy, ex, ey;
+
 upload.onchange = () => {
   const file = upload.files[0];
-  fileSize = file.size;
-  origSize.textContent = Math.round(fileSize/1024)+" KB";
+  fileBytes = file.size;
+  origSize.textContent = Math.round(fileBytes/1024)+" KB";
 
   img = new Image();
-  img.onload = drawFit;
+  img.onload = () => {
+    drawThumbnail();
+    estimate();
+  };
   img.src = URL.createObjectURL(file);
 };
 
-function drawFit(){
+function drawThumbnail(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const r = Math.min(canvas.width/img.width, canvas.height/img.height);
-  sw = img.width*r;
-  sh = img.height*r;
-  sx = (canvas.width-sw)/2;
-  sy = (canvas.height-sh)/2;
-  ctx.drawImage(img, sx, sy, sw, sh);
-  estimate();
+
+  const scale = Math.min(
+    canvas.width / img.width,
+    canvas.height / img.height
+  );
+
+  fit.w = img.width * scale;
+  fit.h = img.height * scale;
+  fit.x = (canvas.width - fit.w) / 2;
+  fit.y = (canvas.height - fit.h) / 2;
+
+  ctx.drawImage(img, fit.x, fit.y, fit.w, fit.h);
 }
 
-quality.oninput = () => { qval.textContent=quality.value; estimate(); };
-width.oninput = estimate;
+quality.oninput = () => {
+  qv.textContent = quality.value;
+  estimate();
+};
+outWidth.oninput = estimate;
 
 function estimate(){
   if(!img) return;
   const q = quality.value/100;
-  const scale = width.value/img.width;
-  const est = fileSize*q*scale*scale;
+  const scale = outWidth.value / img.width;
+  const est = fileBytes * q * scale * scale;
   estSize.textContent = Math.max(1,Math.round(est/1024))+" KB";
 }
 
-/* ---- Crop selector ---- */
+/* ---- crop selector inside fitted image ---- */
 canvas.onmousedown = e => {
-  startX = e.offsetX;
-  startY = e.offsetY;
-  dragging = true;
+  if(!inside(e.offsetX,e.offsetY)) return;
+  drag=true;
+  sx=e.offsetX; sy=e.offsetY;
 };
 
 canvas.onmousemove = e => {
-  if(!dragging) return;
-  drawFit();
+  if(!drag) return;
+  ex=e.offsetX; ey=e.offsetY;
+  drawThumbnail();
   ctx.strokeStyle="red";
-  ctx.strokeRect(startX,startY,e.offsetX-startX,e.offsetY-startY);
+  ctx.strokeRect(sx,sy,ex-sx,ey-sy);
 };
 
-canvas.onmouseup = e => {
-  dragging=false;
-  sx = startX; sy = startY;
-  sw = e.offsetX-startX; sh = e.offsetY-startY;
-};
-/* ----------------------- */
+canvas.onmouseup = () => drag=false;
+
+function inside(x,y){
+  return (
+    x>=fit.x && x<=fit.x+fit.w &&
+    y>=fit.y && y<=fit.y+fit.h
+  );
+}
+/* ------------------------------------------ */
 
 function process(){
-  if(!img || sw<=0 || sh<=0) return alert("Select crop area");
+  if(!img || !sx || !ex) return alert("Select crop area");
 
-  const ratio = sh/sw;
-  const newW = width.value;
+  const rx = (Math.min(sx,ex)-fit.x)/fit.w;
+  const ry = (Math.min(sy,ey)-fit.y)/fit.h;
+  const rw = Math.abs(ex-sx)/fit.w;
+  const rh = Math.abs(ey-sy)/fit.h;
+
+  const cx = rx * img.width;
+  const cy = ry * img.height;
+  const cw = rw * img.width;
+  const ch = rh * img.height;
+
+  const ratio = ch/cw;
+  const newW = outWidth.value;
   const newH = Math.round(newW*ratio);
 
   const out = document.createElement("canvas");
   out.width=newW; out.height=newH;
-  out.getContext("2d").drawImage(canvas,sx,sy,sw,sh,0,0,newW,newH);
+  out.getContext("2d").drawImage(
+    img, cx, cy, cw, ch, 0,0,newW,newH
+  );
 
   const data = out.toDataURL("image/jpeg",quality.value/100);
   download.href=data;
