@@ -2,17 +2,32 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Certificate Generator</title>
+<title>Certificate Generator (Word)</title>
 
 <!-- Libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
 <style>
-body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0; }
-.nav { background:#222; padding:12px; text-align:center; }
-.nav a { color:#fff; margin:0 12px; text-decoration:none; font-weight:bold; }
+body {
+  font-family: Arial, sans-serif;
+  background:#f4f6f8;
+  margin:0;
+}
+
+.nav {
+  background:#222;
+  padding:12px;
+  text-align:center;
+}
+
+.nav a {
+  color:#fff;
+  margin:0 12px;
+  text-decoration:none;
+  font-weight:bold;
+}
 
 .container {
   max-width:900px;
@@ -24,20 +39,13 @@ body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0; }
 }
 
 button {
-  padding:10px 14px;
+  padding:10px 16px;
   border:none;
   border-radius:6px;
-  background:#6f42c1;
+  background:#2d7ff9;
   color:#fff;
   cursor:pointer;
-  margin-right:10px;
-}
-
-.preview {
-  display:none;
-  border:1px solid #ccc;
-  padding:15px;
-  margin-top:20px;
+  margin-top:10px;
 }
 </style>
 </head>
@@ -51,104 +59,118 @@ button {
 </nav>
 
 <div class="container">
-  <h2>Certificate Generator</h2>
+  <h2>Certificate Generator (Single Word File)</h2>
 
-  <input type="file" id="file" accept=".xlsx,.csv"><br><br>
-
-  <button id="btnLoad">Load & Preview</button>
-  <button id="btnZip">Generate ZIP</button>
-  <button id="btnTemplate">Download Template</button>
-
-  <div class="preview" id="preview">
-    <p><b>Hindi Name:</b> <span id="p_hi"></span></p>
-    <p><b>English Name:</b> <span id="p_en"></span></p>
-  </div>
+  <input type="file" id="file" accept=".xlsx"><br><br>
+  <button id="btnGenerate">Generate Word Certificate</button>
 </div>
 
 <script>
-/* ===============================
-   SAFE JS – NO GLOBAL ONCLICK
-   =============================== */
+const { Document, Packer, Paragraph, TextRun, PageBreak, AlignmentType } = window.docx;
 
-const { jsPDF } = window.jspdf;
-let records = [];
+document.getElementById("btnGenerate").addEventListener("click", generateWord);
 
-document.getElementById("btnLoad").addEventListener("click", loadFile);
-document.getElementById("btnZip").addEventListener("click", generateZIP);
-document.getElementById("btnTemplate").addEventListener("click", downloadTemplate);
-
-function loadFile(){
-  const f = document.getElementById("file").files[0];
-  if(!f) return alert("Upload Excel or CSV");
+function generateWord() {
+  const file = document.getElementById("file").files[0];
+  if (!file) {
+    alert("Please upload Excel (.xlsx)");
+    return;
+  }
 
   const reader = new FileReader();
   reader.onload = e => {
-    const wb = XLSX.read(new Uint8Array(e.target.result), {type:"array"});
-    records = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-    if(!records.length) return alert("Empty file");
+    const wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
 
-    previewRecord(records[0]);
+    if (!rows.length) {
+      alert("Excel file is empty");
+      return;
+    }
+
+    const children = [];
+
+    rows.forEach((r, index) => {
+      const nameHI = r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en;
+
+      children.push(
+        new Paragraph({
+          text: "KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 300 },
+          bold: true,
+        }),
+
+        new Paragraph({
+          text: "प्रमाण-पत्र",
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 500 },
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun(`यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI}`)
+          ],
+          spacing: { after: 300 },
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun(`${r.start_date} से ${r.end_date} तक`)
+          ],
+          spacing: { after: 300 },
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun(`${r.hours} घंटे हेतु`)
+          ],
+          spacing: { after: 500 },
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun(`This is to certify that ${r.name_en}`)
+          ],
+          spacing: { after: 200 },
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun(
+              `has attended training from ${r.start_date} to ${r.end_date} for ${r.hours} hours.`
+            )
+          ],
+          spacing: { after: 800 },
+        }),
+
+        new Paragraph({
+          text: "Principal",
+          alignment: AlignmentType.RIGHT,
+        })
+      );
+
+      // Page break between certificates
+      if (index < rows.length - 1) {
+        children.push(new Paragraph({ children: [new PageBreak()] }));
+      }
+    });
+
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: children,
+        },
+      ],
+    });
+
+    Packer.toBlob(doc).then(blob => {
+      saveAs(blob, "certificates.docx");
+    });
   };
-  reader.readAsArrayBuffer(f);
-}
 
-function previewRecord(r){
-  document.getElementById("p_hi").textContent =
-    r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en;
-
-  document.getElementById("p_en").textContent = r.name_en;
-  document.getElementById("preview").style.display = "block";
-}
-
-function downloadTemplate(){
-  const headers = [
-    "name_en","name_hi","training","start_date",
-    "end_date","hours","designation","school","region"
-  ];
-  const blob = new Blob([headers.join(",")], {type:"text/csv"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "certificate_template.csv";
-  a.click();
-}
-
-function createPDF(r){
-  const pdf = new jsPDF("landscape");
-
-  const hi = r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en;
-
-  pdf.setFont("Times","Bold");
-  pdf.setFontSize(22);
-  pdf.text("KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",148,25,{align:"center"});
-
-  pdf.setFontSize(18);
-  pdf.text("प्रमाण-पत्र",148,40,{align:"center"});
-
-  pdf.setFont("Times","Normal");
-  pdf.setFontSize(14);
-  pdf.text(`यह प्रमाणित किया जाता है कि ${hi}`,30,65);
-  pdf.text(`${r.start_date} से ${r.end_date} तक`,30,85);
-  pdf.text(`${r.hours} घंटे हेतु`,30,105);
-
-  pdf.text(`This is to certify that ${r.name_en}`,30,130);
-  pdf.text("Principal",250,190);
-
-  return pdf.output("arraybuffer");
-}
-
-async function generateZIP(){
-  if(!records.length) return alert("Load file first");
-
-  const zip = new JSZip();
-  records.forEach((r,i)=>{
-    zip.file(`certificate_${i+1}.pdf`, createPDF(r));
-  });
-
-  const blob = await zip.generateAsync({type:"blob"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "certificates.zip";
-  a.click();
+  reader.readAsArrayBuffer(file);
 }
 </script>
 
