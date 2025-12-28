@@ -1,40 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Image Resizer</title>
+<meta charset="UTF-8">
+<title>Image Resizer & Compressor</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 500px; margin: 40px auto; }
+  label { display: block; margin-top: 15px; }
+</style>
 </head>
 <body>
-  <h2>Image Resizer</h2>
 
-  <input type="file" id="upload" accept="image/*"><br><br>
+<h2>Image Resizer & Compressor</h2>
 
-  Width:
-  <input type="number" id="w" value="300">
-  Height:
-  <input type="number" id="h" value="300"><br><br>
+<input type="file" id="upload" accept="image/*">
 
-  <button onclick="resizeImage()">Resize</button><br><br>
+<label>
+  Width (px):
+  <input type="number" id="w" value="800">
+</label>
 
-  <canvas id="canvas"></canvas><br><br>
+<label>
+  Height (px):
+  <input type="number" id="h" value="600">
+</label>
 
-  <a id="download" download="resized.png">Download Image</a>
+<label>
+  Compression: <span id="qval">80</span>%
+  <input type="range" id="quality" min="10" max="100" value="80">
+</label>
+
+<br>
+<button onclick="processImage()">Process Image</button>
+
+<br><br>
+<canvas id="canvas" style="border:1px solid #ccc;"></canvas>
+
+<br><br>
+<a id="download" style="display:none;">Download Image</a>
 
 <script>
-function resizeImage() {
-  const file = document.getElementById("upload").files[0];
-  if (!file) return alert("Select an image");
+const qualitySlider = document.getElementById("quality");
+const qval = document.getElementById("qval");
+
+qualitySlider.oninput = () => qval.textContent = qualitySlider.value;
+
+function processImage() {
+  const fileInput = document.getElementById("upload");
+  if (!fileInput.files.length) {
+    alert("Please select an image");
+    return;
+  }
 
   const img = new Image();
-  img.onload = function () {
+  img.onload = () => {
     const canvas = document.getElementById("canvas");
-    canvas.width = w.value;
-    canvas.height = h.value;
-    canvas.getContext("2d").drawImage(img, 0, 0, w.value, h.value);
-    download.href = canvas.toDataURL("image/png");
+    const w = parseInt(document.getElementById("w").value);
+    const h = parseInt(document.getElementById("h").value);
+    const quality = parseInt(qualitySlider.value) / 100;
+
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+
+    const dataURL = canvas.toDataURL("image/jpeg", quality);
+
+    const download = document.getElementById("download");
+    download.href = dataURL;
+    download.download = "compressed.jpg";
+    download.style.display = "inline-block";
+    download.textContent = "Download Image";
   };
-  img.src = URL.createObjectURL(file);
+
+  img.src = URL.createObjectURL(fileInput.files[0]);
 }
 </script>
+
 </body>
 </html>
