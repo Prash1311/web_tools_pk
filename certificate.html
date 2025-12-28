@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Certificate Generator</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background:#f4f6f8;
+  margin:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+
+.card {
+  background:#fff;
+  padding:30px;
+  width:420px;
+  border-radius:10px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.15);
+}
+
+h2 {
+  text-align:center;
+  margin-bottom:20px;
+}
+
+label {
+  display:block;
+  margin-top:12px;
+  font-weight:bold;
+}
+
+input {
+  width:100%;
+  padding:8px;
+  margin-top:5px;
+}
+
+button {
+  width:100%;
+  padding:12px;
+  margin-top:20px;
+  border:none;
+  border-radius:6px;
+  background:#6f42c1;
+  color:#fff;
+  font-size:16px;
+  cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Certificate Generator</h2>
+
+  <label>Student Name</label>
+  <input type="text" id="name" placeholder="Enter name">
+
+  <label>Course / Event</label>
+  <input type="text" id="course" placeholder="Course or event name">
+
+  <label>Date</label>
+  <input type="date" id="date">
+
+  <label>Issued By</label>
+  <input type="text" id="issuer" placeholder="School / Institution">
+
+  <button onclick="generate()">Generate Certificate</button>
+</div>
+
+<script>
+const { jsPDF } = window.jspdf;
+
+function generate() {
+  const name = document.getElementById("name").value;
+  const course = document.getElementById("course").value;
+  const date = document.getElementById("date").value;
+  const issuer = document.getElementById("issuer").value;
+
+  if (!name || !course || !date || !issuer) {
+    alert("Please fill all fields");
+    return;
+  }
+
+  const pdf = new jsPDF("landscape");
+
+  pdf.setFont("Times","Bold");
+  pdf.setFontSize(28);
+  pdf.text("CERTIFICATE OF PARTICIPATION", 148, 30, { align:"center" });
+
+  pdf.setFont("Times","Normal");
+  pdf.setFontSize(16);
+  pdf.text("This is to certify that", 148, 55, { align:"center" });
+
+  pdf.setFont("Times","Bold");
+  pdf.setFontSize(22);
+  pdf.text(name, 148, 75, { align:"center" });
+
+  pdf.setFont("Times","Normal");
+  pdf.setFontSize(16);
+  pdf.text(
+    `has successfully participated in "${course}"`,
+    148, 95, { align:"center" }
+  );
+
+  pdf.text(`Date: ${date}`, 40, 130);
+  pdf.text(`Issued by: ${issuer}`, 220, 130, { align:"right" });
+
+  pdf.save(`${name}_certificate.pdf`);
+}
+</script>
+
+</body>
+</html>
