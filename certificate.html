@@ -4,17 +4,20 @@
 <meta charset="UTF-8">
 <title>Certificate Generator (Bulk ZIP)</title>
 
+<!-- Libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
+/* ---------- Global ---------- */
 body {
   font-family: Arial, sans-serif;
   background:#f4f6f8;
   margin:0;
 }
 
+/* ---------- Navigation ---------- */
 .nav {
   background:#222;
   padding:12px 0;
@@ -29,6 +32,52 @@ body {
   font-weight:bold;
 }
 
+.nav a:hover {
+  text-decoration:underline;
+}
+
+/* ---------- Coffee Button ---------- */
+.donate-float {
+  position:fixed;
+  top:10px;
+  right:10px;
+  z-index:3000;
+}
+
+.donate-float button {
+  background:#ff813f;
+  color:#fff;
+  border:none;
+  border-radius:50%;
+  width:44px;
+  height:44px;
+  font-size:20px;
+  cursor:pointer;
+}
+
+.qr-box {
+  display:none;
+  position:absolute;
+  top:50px;
+  right:0;
+  background:#fff;
+  padding:10px;
+  border-radius:8px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.2);
+}
+
+.qr-box img {
+  width:160px;
+}
+
+.note {
+  font-size:11px;
+  text-align:center;
+  margin-top:5px;
+  color:#555;
+}
+
+/* ---------- Page ---------- */
 .container {
   max-width:900px;
   margin:30px auto;
@@ -38,35 +87,47 @@ body {
   box-shadow:0 6px 18px rgba(0,0,0,0.15);
 }
 
-button {
-  padding:10px 14px;
-  border:none;
-  border-radius:6px;
-  background:#6f42c1;
-  color:#fff;
-  cursor:pointer;
-  margin-top:10px;
-}
-
-.preview {
-  border:1px solid #ccc;
-  padding:20px;
-  margin-top:20px;
-}
-
-.row { margin-top:8px; }
-
 .actions {
   display:flex;
   gap:12px;
   flex-wrap:wrap;
   margin-top:15px;
 }
+
+button.action {
+  padding:10px 14px;
+  border:none;
+  border-radius:6px;
+  background:#6f42c1;
+  color:#fff;
+  cursor:pointer;
+}
+
+.preview {
+  border:1px solid #ccc;
+  padding:20px;
+  margin-top:20px;
+  display:none;
+}
+
+.preview .row {
+  margin-top:8px;
+}
 </style>
 </head>
 
 <body>
 
+<!-- ☕ Buy Me a Coffee -->
+<div class="donate-float">
+  <button onclick="toggleQR()">☕</button>
+  <div class="qr-box" id="qr">
+    <img src="qr.jpg" alt="Donate QR">
+    <div class="note">Voluntary support ❤️</div>
+  </div>
+</div>
+
+<!-- Navigation (NO self link) -->
 <nav class="nav">
   <a href="index.html">🏠 Home</a>
   <a href="image-resizer.html">🖼 Image Resizer</a>
@@ -74,73 +135,41 @@ button {
 </nav>
 
 <div class="container">
-<h2>Certificate Generator (Excel Upload → ZIP)</h2>
+  <h2>Certificate Generator (Excel Upload → ZIP)</h2>
 
-<input type="file" id="file" accept=".xlsx,.csv"><br>
+  <input type="file" id="file" accept=".xlsx,.csv">
 
-<div class="actions">
-  <button onclick="loadFile()">Load & Preview First</button>
-  <button onclick="generateZIP()">Generate ALL Certificates (ZIP)</button>
-  <button onclick="downloadTemplate()">⬇ Download Excel Template</button>
-</div>
-
-
-<div class="preview" id="preview" style="display:none;">
-  <h3>Preview (First Record)</h3>
-
-  <div class="row"><b>Hindi Name:</b> <span id="p_name_hi"></span></div>
-  <div class="row"><b>English Name:</b> <span id="p_name_en"></span></div>
-  <div class="row"><b>Designation:</b> <span id="p_desig"></span></div>
-  <div class="row"><b>School:</b> <span id="p_school"></span></div>
-  <div class="row"><b>Region:</b> <span id="p_region"></span></div>
-  <div class="row"><b>Training:</b> <span id="p_training"></span></div>
-  <div class="row"><b>Duration:</b>
-    <span id="p_start"></span> to <span id="p_end"></span>
-    (<span id="p_hours"></span> hours)
+  <div class="actions">
+    <button class="action" onclick="loadFile()">Load & Preview First</button>
+    <button class="action" onclick="generateZIP()">Generate ALL Certificates (ZIP)</button>
+    <button class="action" onclick="downloadTemplate()">⬇ Download Excel Template</button>
   </div>
-</div>
+
+  <div class="preview" id="preview">
+    <h3>Preview (First Record)</h3>
+    <div class="row"><b>Hindi Name:</b> <span id="p_name_hi"></span></div>
+    <div class="row"><b>English Name:</b> <span id="p_name_en"></span></div>
+    <div class="row"><b>Designation:</b> <span id="p_desig"></span></div>
+    <div class="row"><b>School:</b> <span id="p_school"></span></div>
+    <div class="row"><b>Region:</b> <span id="p_region"></span></div>
+    <div class="row"><b>Training:</b> <span id="p_training"></span></div>
+    <div class="row">
+      <b>Duration:</b>
+      <span id="p_start"></span> to <span id="p_end"></span>
+      (<span id="p_hours"></span> hours)
+    </div>
+  </div>
 </div>
 
 <script>
 const { jsPDF } = window.jspdf;
 let records = [];
-<script>
-function downloadTemplate() {
-  const header = [
-    "name_en",
-    "name_hi",
-    "training",
-    "start_date",
-    "end_date",
-    "hours",
-    "designation",
-    "school",
-    "region"
-  ];
 
-  const sampleRow = [
-    "MAHESHWAR PRASAD NARAYAN SINGH",
-    "महेश्वर प्रसाद नारायण सिंह",
-    "IN-HOUSE TRAINING",
-    "15-01-2025",
-    "15-12-2025",
-    "30",
-    "VICE-PRINCIPAL",
-    "DANAPUR CANTT. (FIRST SHIFT)",
-    "PATNA"
-  ];
-
-  const csv =
-    header.join(",") + "\n" +
-    sampleRow.join(",");
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "certificate_template.csv";
-  link.click();
+/* ---------- Coffee ---------- */
+function toggleQR(){
+  const q = document.getElementById("qr");
+  q.style.display = (q.style.display === "block") ? "none" : "block";
 }
-</script>
 
 /* ---------- Load & Preview ---------- */
 function loadFile(){
@@ -155,7 +184,6 @@ function loadFile(){
     records = XLSX.utils.sheet_to_json(sheet);
 
     if(records.length === 0) return alert("File is empty");
-
     showPreview(records[0]);
   };
   reader.readAsArrayBuffer(file);
@@ -178,11 +206,37 @@ function showPreview(r){
   preview.style.display = "block";
 }
 
+/* ---------- Template Download ---------- */
+function downloadTemplate(){
+  const header = [
+    "name_en","name_hi","training","start_date","end_date",
+    "hours","designation","school","region"
+  ];
+
+  const sample = [
+    "MAHESHWAR PRASAD NARAYAN SINGH",
+    "महेश्वर प्रसाद नारायण सिंह",
+    "IN-HOUSE TRAINING",
+    "15-01-2025",
+    "15-12-2025",
+    "30",
+    "VICE-PRINCIPAL",
+    "DANAPUR CANTT. (FIRST SHIFT)",
+    "PATNA"
+  ];
+
+  const csv = header.join(",") + "\n" + sample.join(",");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "certificate_template.csv";
+  link.click();
+}
+
 /* ---------- PDF Creation ---------- */
 function createPDF(r){
   const nameEN = r.name_en;
-  const nameHI = r.name_hi && r.name_hi.trim() !== ""
-    ? r.name_hi : r.name_en;
+  const nameHI = r.name_hi && r.name_hi.trim() !== "" ? r.name_hi : r.name_en;
 
   const pdf = new jsPDF("landscape");
 
@@ -202,4 +256,43 @@ function createPDF(r){
   pdf.text(`क्षेत्रीय कार्यालय : ${r.region}`,20,95);
 
   pdf.text(
-    `${r.tra
+    `${r.training} (दिनांक ${r.start_date} से ${r.end_date}) में ${r.hours} घंटे हेतु`,
+    20,110
+  );
+
+  pdf.text("प्रतिभागी / संसाधक के रूप में सहभागिता की।",20,120);
+
+  pdf.text(`This is to certify that ${nameEN}`,20,145);
+  pdf.text(
+    `has attended ${r.training} from ${r.start_date} to ${r.end_date} for ${r.hours} hours.`,
+    20,165
+  );
+
+  pdf.text("Principal",250,190);
+
+  return pdf.output("arraybuffer");
+}
+
+/* ---------- Bulk ZIP ---------- */
+async function generateZIP(){
+  if(records.length === 0) return alert("Load Excel first");
+
+  const zip = new JSZip();
+
+  records.forEach((r, i) => {
+    const pdfBytes = createPDF(r);
+    const safeName = (r.name_en || "certificate_"+(i+1))
+      .replace(/[^a-z0-9]/gi,"_");
+    zip.file(`${safeName}.pdf`, pdfBytes);
+  });
+
+  const blob = await zip.generateAsync({type:"blob"});
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "certificates.zip";
+  link.click();
+}
+</script>
+
+</body>
+</html>
