@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Image Resizer</title>
+</head>
+<body>
+  <h2>Image Resizer</h2>
+
+  <input type="file" id="upload" accept="image/*"><br><br>
+
+  Width:
+  <input type="number" id="w" value="300">
+  Height:
+  <input type="number" id="h" value="300"><br><br>
+
+  <button onclick="resizeImage()">Resize</button><br><br>
+
+  <canvas id="canvas"></canvas><br><br>
+
+  <a id="download" download="resized.png">Download Image</a>
+
+<script>
+function resizeImage() {
+  const file = document.getElementById("upload").files[0];
+  if (!file) return alert("Select an image");
+
+  const img = new Image();
+  img.onload = function () {
+    const canvas = document.getElementById("canvas");
+    canvas.width = w.value;
+    canvas.height = h.value;
+    canvas.getContext("2d").drawImage(img, 0, 0, w.value, h.value);
+    download.href = canvas.toDataURL("image/png");
+  };
+  img.src = URL.createObjectURL(file);
+}
+</script>
+</body>
+</html>
