@@ -209,14 +209,24 @@ function showPreview(r){
 /* ---------- Template Download ---------- */
 function downloadTemplate(){
   const header = [
-    "name_en","name_hi","training","start_date","end_date",
-    "hours","designation","school","region"
+    "name_en",
+    "name_hi",
+    "training",
+    "start_date",
+    "end_date",
+    "hours",
+    "designation",
+    "school",
+    "region"
   ];
 
-  
+  // ONLY header row, no sample data
+  const csv = header.join(",");
 
-  const csv = header.join(",") + "\n" + sample.join(",");
-  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const blob = new Blob([csv], {
+    type: "text/csv;charset=utf-8;"
+  });
+
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = "certificate_template.csv";
