@@ -213,17 +213,7 @@ function downloadTemplate(){
     "hours","designation","school","region"
   ];
 
-  const sample = [
-    " Name in English ",
-    "Name in hindi",
-    "IN-HOUSE TRAINING",
-    "start date",
-    "End date",
-    "Number of hours",
-    "Post",
-    "School name",
-    "PATNA"
-  ];
+  
 
   const csv = header.join(",") + "\n" + sample.join(",");
   const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
