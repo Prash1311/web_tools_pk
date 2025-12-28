@@ -9,15 +9,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-<style>
-/* ---------- Global ---------- */
-body {
-  font-family: Arial, sans-serif;
-  background:#f4f6f8;
-  margin:0;
-}
+<!-- Hindi Font -->
+<script src="devanagari-font.js"></script>
 
-/* ---------- Navigation ---------- */
+<style>
+body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0; }
+
 .nav {
   background:#222;
   padding:12px 0;
@@ -26,58 +23,8 @@ body {
   gap:24px;
 }
 
-.nav a {
-  color:#fff;
-  text-decoration:none;
-  font-weight:bold;
-}
+.nav a { color:#fff; text-decoration:none; font-weight:bold; }
 
-.nav a:hover {
-  text-decoration:underline;
-}
-
-/* ---------- Coffee Button ---------- */
-.donate-float {
-  position:fixed;
-  top:10px;
-  right:10px;
-  z-index:3000;
-}
-
-.donate-float button {
-  background:#ff813f;
-  color:#fff;
-  border:none;
-  border-radius:50%;
-  width:44px;
-  height:44px;
-  font-size:20px;
-  cursor:pointer;
-}
-
-.qr-box {
-  display:none;
-  position:absolute;
-  top:50px;
-  right:0;
-  background:#fff;
-  padding:10px;
-  border-radius:8px;
-  box-shadow:0 4px 12px rgba(0,0,0,0.2);
-}
-
-.qr-box img {
-  width:160px;
-}
-
-.note {
-  font-size:11px;
-  text-align:center;
-  margin-top:5px;
-  color:#555;
-}
-
-/* ---------- Page ---------- */
 .container {
   max-width:900px;
   margin:30px auto;
@@ -87,14 +34,9 @@ body {
   box-shadow:0 6px 18px rgba(0,0,0,0.15);
 }
 
-.actions {
-  display:flex;
-  gap:12px;
-  flex-wrap:wrap;
-  margin-top:15px;
-}
+.actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:15px; }
 
-button.action {
+button {
   padding:10px 14px;
   border:none;
   border-radius:6px;
@@ -103,31 +45,13 @@ button.action {
   cursor:pointer;
 }
 
-.preview {
-  border:1px solid #ccc;
-  padding:20px;
-  margin-top:20px;
-  display:none;
-}
-
-.preview .row {
-  margin-top:8px;
-}
+.preview { display:none; border:1px solid #ccc; padding:20px; margin-top:20px; }
+.preview .row { margin-top:8px; }
 </style>
 </head>
 
 <body>
 
-<!-- ☕ Buy Me a Coffee -->
-<div class="donate-float">
-  <button onclick="toggleQR()">☕</button>
-  <div class="qr-box" id="qr">
-    <img src="qr.jpg" alt="Donate QR">
-    <div class="note">Voluntary support ❤️</div>
-  </div>
-</div>
-
-<!-- Navigation (NO self link) -->
 <nav class="nav">
   <a href="index.html">🏠 Home</a>
   <a href="image-resizer.html">🖼 Image Resizer</a>
@@ -135,162 +59,103 @@ button.action {
 </nav>
 
 <div class="container">
-  <h2>Certificate Generator (Excel Upload → ZIP)</h2>
+<h2>Certificate Generator (Excel → ZIP)</h2>
 
-  <input type="file" id="file" accept=".xlsx,.csv">
+<input type="file" id="file" accept=".xlsx,.csv">
 
-  <div class="actions">
-    <button class="action" onclick="loadFile()">Load & Preview First</button>
-    <button class="action" onclick="generateZIP()">Generate ALL Certificates (ZIP)</button>
-    <button class="action" onclick="downloadTemplate()">⬇ Download Excel Template</button>
-  </div>
+<div class="actions">
+  <button onclick="loadFile()">Load & Preview</button>
+  <button onclick="generateZIP()">Generate ALL (ZIP)</button>
+  <button onclick="downloadTemplate()">⬇ Download Template</button>
+</div>
 
-  <div class="preview" id="preview">
-    <h3>Preview (First Record)</h3>
-    <div class="row"><b>Hindi Name:</b> <span id="p_name_hi"></span></div>
-    <div class="row"><b>English Name:</b> <span id="p_name_en"></span></div>
-    <div class="row"><b>Designation:</b> <span id="p_desig"></span></div>
-    <div class="row"><b>School:</b> <span id="p_school"></span></div>
-    <div class="row"><b>Region:</b> <span id="p_region"></span></div>
-    <div class="row"><b>Training:</b> <span id="p_training"></span></div>
-    <div class="row">
-      <b>Duration:</b>
-      <span id="p_start"></span> to <span id="p_end"></span>
-      (<span id="p_hours"></span> hours)
-    </div>
-  </div>
+<div class="preview" id="preview">
+  <h3>Preview (First Record)</h3>
+  <div class="row"><b>Hindi Name:</b> <span id="p_hi"></span></div>
+  <div class="row"><b>English Name:</b> <span id="p_en"></span></div>
+</div>
 </div>
 
 <script>
 const { jsPDF } = window.jspdf;
 let records = [];
 
-/* ---------- Coffee ---------- */
-function toggleQR(){
-  const q = document.getElementById("qr");
-  q.style.display = (q.style.display === "block") ? "none" : "block";
-}
-
-/* ---------- Load & Preview ---------- */
+/* ---------- Load Excel ---------- */
 function loadFile(){
-  const file = document.getElementById("file").files[0];
-  if(!file) return alert("Upload Excel / CSV");
+  const f = file.files[0];
+  if(!f) return alert("Upload Excel / CSV");
 
-  const reader = new FileReader();
-  reader.onload = e => {
-    const data = new Uint8Array(e.target.result);
-    const wb = XLSX.read(data, {type:"array"});
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    records = XLSX.utils.sheet_to_json(sheet);
-
-    if(records.length === 0) return alert("File is empty");
-    showPreview(records[0]);
+  const r = new FileReader();
+  r.onload = e => {
+    const wb = XLSX.read(new Uint8Array(e.target.result), {type:"array"});
+    records = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+    if(!records.length) return alert("Empty file");
+    previewRecord(records[0]);
   };
-  reader.readAsArrayBuffer(file);
+  r.readAsArrayBuffer(f);
 }
 
-function showPreview(r){
-  const nameEN = r.name_en;
-  const nameHI = r.name_hi && r.name_hi.trim() !== "" ? r.name_hi : r.name_en;
-
-  p_name_hi.textContent = nameHI;
-  p_name_en.textContent = nameEN;
-  p_desig.textContent = r.designation;
-  p_school.textContent = r.school;
-  p_region.textContent = r.region;
-  p_training.textContent = r.training;
-  p_start.textContent = r.start_date;
-  p_end.textContent = r.end_date;
-  p_hours.textContent = r.hours;
-
+function previewRecord(r){
+  const hi = r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en;
+  p_hi.textContent = hi;
+  p_en.textContent = r.name_en;
   preview.style.display = "block";
 }
 
-/* ---------- Template Download ---------- */
+/* ---------- Template ---------- */
 function downloadTemplate(){
   const header = [
-    "name_en",
-    "name_hi",
-    "training",
-    "start_date",
-    "end_date",
-    "hours",
-    "designation",
-    "school",
-    "region"
+    "name_en","name_hi","training","start_date",
+    "end_date","hours","designation","school","region"
   ];
-
-  // ONLY header row, no sample data
-  const csv = header.join(",");
-
-  const blob = new Blob([csv], {
-    type: "text/csv;charset=utf-8;"
-  });
-
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "certificate_template.csv";
-  link.click();
+  const blob = new Blob([header.join(",")], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "certificate_template.csv";
+  a.click();
 }
 
-/* ---------- PDF Creation ---------- */
+/* ---------- PDF + Hindi Font ---------- */
 function createPDF(r){
-  const nameEN = r.name_en;
-  const nameHI = r.name_hi && r.name_hi.trim() !== "" ? r.name_hi : r.name_en;
-
   const pdf = new jsPDF("landscape");
+
+  // Register Hindi font
+  pdf.addFileToVFS("NotoDeva.ttf", DEVANAGARI_FONT_BASE64);
+  pdf.addFont("NotoDeva.ttf", "NotoDeva", "normal");
+
+  const hi = r.name_hi && r.name_hi.trim() ? r.name_hi : r.name_en;
 
   pdf.setFont("Times","Bold");
   pdf.setFontSize(22);
   pdf.text("KENDRIYA VIDYALAYA SANGATHAN, NEW DELHI",148,25,{align:"center"});
 
+  pdf.setFont("NotoDeva","normal");
   pdf.setFontSize(18);
-  pdf.text("प्रमाण-पत्र / Certificate",148,40,{align:"center"});
+  pdf.text("प्रमाण-पत्र",148,40,{align:"center"});
+
+  pdf.setFontSize(14);
+  pdf.text(`यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${hi}`,20,70);
 
   pdf.setFont("Times","Normal");
-  pdf.setFontSize(14);
-
-  pdf.text(`यह प्रमाणित किया जाता है कि श्री/श्रीमती/सुश्री/डॉ. ${nameHI}`,20,65);
-  pdf.text(`पदनाम : ${r.designation}`,20,75);
-  pdf.text(`विद्यालय : ${r.school}`,20,85);
-  pdf.text(`क्षेत्रीय कार्यालय : ${r.region}`,20,95);
-
-  pdf.text(
-    `${r.training} (दिनांक ${r.start_date} से ${r.end_date}) में ${r.hours} घंटे हेतु`,
-    20,110
-  );
-
-  pdf.text("प्रतिभागी / संसाधक के रूप में सहभागिता की।",20,120);
-
-  pdf.text(`This is to certify that ${nameEN}`,20,145);
-  pdf.text(
-    `has attended ${r.training} from ${r.start_date} to ${r.end_date} for ${r.hours} hours.`,
-    20,165
-  );
+  pdf.text(`This is to certify that ${r.name_en}`,20,110);
 
   pdf.text("Principal",250,190);
 
   return pdf.output("arraybuffer");
 }
 
-/* ---------- Bulk ZIP ---------- */
+/* ---------- ZIP ---------- */
 async function generateZIP(){
-  if(records.length === 0) return alert("Load Excel first");
-
+  if(!records.length) return alert("Load file first");
   const zip = new JSZip();
-
-  records.forEach((r, i) => {
-    const pdfBytes = createPDF(r);
-    const safeName = (r.name_en || "certificate_"+(i+1))
-      .replace(/[^a-z0-9]/gi,"_");
-    zip.file(`${safeName}.pdf`, pdfBytes);
+  records.forEach((r,i)=>{
+    zip.file(`${r.name_en.replace(/\\W/g,"_")}.pdf`, createPDF(r));
   });
-
   const blob = await zip.generateAsync({type:"blob"});
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "certificates.zip";
-  link.click();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "certificates.zip";
+  a.click();
 }
 </script>
 
