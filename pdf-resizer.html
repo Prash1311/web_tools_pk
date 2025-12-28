@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PDF Resizer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<style>
+ body {
+   font-family: Arial, sans-serif;
+   background:#f4f6f8;
+   display:flex;
+   justify-content:center;
+   align-items:center;
+   height:100vh;
+   margin:0;
+ }
+ .card {
+   background:#fff;
+   padding:30px;
+   border-radius:10px;
+   width:360px;
+   text-align:center;
+   box-shadow:0 6px 18px rgba(0,0,0,0.15);
+ }
+ label { display:block; margin-top:15px; }
+ button {
+   margin-top:20px;
+   padding:10px;
+   width:100%;
+   border:none;
+   border-radius:6px;
+   background:#198754;
+   color:#fff;
+   font-size:16px;
+   cursor:pointer;
+ }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h2>PDF Resizer</h2>
+
+  <input type="file" id="pdfFile" accept="application/pdf">
+
+  <label>
+    Scale pages (%):
+    <input type="range" id="scale" min="50" max="100" value="80">
+    <span id="sval">80</span>%
+  </label>
+
+  <p>
+    Original size: <b><span id="orig">--</span></b><br>
+    Estimated size: <b><span id="est">--</span></b>
+  </p>
+
+  <button onclick="resizePDF()">Resize & Download</button>
+</div>
+
+<script>
+const scaleSlider = document.getElementById("scale");
+const sval = document.getElementById("sval");
+const orig = document.getElementById("orig");
+const est = document.getElementById("est");
+
+let originalBytes = 0;
+
+scaleSlider.oninput = () => {
+  sval.textContent = scaleSlider.value;
+  estimate();
+};
+
+pdfFile.onchange = () => {
+  const file = pdfFile.files[0];
+  if (!file) return;
+  originalBytes = file.size;
+  orig.textContent = Math.round(originalBytes/1024)+" KB";
+  estimate();
+};
+
+function estimate(){
+  if (!originalBytes) return;
+  const s = scaleSlider.value / 100;
+  const estimated = originalBytes * s * s;
+  est.textContent = Math.max(1,Math.round(estimated/1024))+" KB";
+}
+
+async function resizePDF(){
+  const file = pdfFile.files[0];
+  if (!file) return alert("Select a PDF");
+
+  const bytes = await file.arrayBuffer();
+  const pdfDoc = await PDFLib.PDFDocument.load(bytes);
+  const newPdf = await PDFLib.PDFDocument.create();
+
+  const scale = scaleSlider.value / 100;
+  const pages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+
+  pages.forEach(p => {
+    const { width, height } = p.getSize();
+    p.setSize(width*scale, height*scale);
+    newPdf.addPage(p);
+  });
+
+  const outBytes = await newPdf.save();
+  const blob = new Blob([outBytes], { type:"application/pdf" });
+
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "resized.pdf";
+  link.click();
+}
+</script>
+
+</body>
+</html>
